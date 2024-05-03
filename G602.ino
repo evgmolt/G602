@@ -69,6 +69,7 @@ void loop() {
     case PLAYING:
       if (rotationFreq > targetRotationFreq + HYSTERESIS) pwmLevel--;
       if (rotationFreq < targetRotationFreq + HYSTERESIS) pwmLevel++;
+      analogWrite(MOTOR_PIN, pwmLevel);
       if (analogRead(AUTO_STOP_PIN) < STOP_LEVEL || digitalRead(STOP_PIN) == HIGH) {
         analogWrite(MOTOR_PIN, 0);
         mode = READY;
