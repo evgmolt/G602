@@ -13,15 +13,15 @@
 
 #define STOP_LEVEL 20
 
-#define PWM_LEVEL_STARTING 255
-#define PWM_LEVEL_DEFAULT 180
+#define PWM_LEVEL_STARTING 250
+#define PWM_LEVEL_DEFAULT 100
 
-#define TARGET_ROTATION_FREQ_33 80
+#define TARGET_ROTATION_FREQ_33 34
 #define TARGET_ROTATION_FREQ_45 108
 
 #define DATA_ARRAY_SIZE 0x20
 #define SAMPLING_FREQ 1000
-#define STARTING_TIME 3
+#define STARTING_TIME 2
 #define AVER_SIZE 10
 
 #define HYSTERESIS 1
@@ -44,51 +44,65 @@ int secCounter = 0;
 int zeroCounter = 0;
 int prevData;
 int rotationFreq;
-int targetRotationFreq;
+int potentiometer;
+int targetRotationFreq = TARGET_ROTATION_FREQ_33;
 int zero_level;
-byte pwmLevel;
+byte pwmLevel = 150;
 
 void setup() {
   pinMode(AUTO_STOP_PIN, INPUT);
+  pinMode(3, OUTPUT);
   Serial.begin(115200);
   Timer1.initialize(timerConst); 
   Timer1.attachInterrupt(timerInterrupt);
+  mode = READY;
 }
 
 void loop() {
   switch (mode) {
+    
     case READY:
-      if (digitalRead(START_PIN) == HIGH) {
-        analogWrite(MOTOR_PIN, PWM_LEVEL_STARTING);
-        mode = STARTING;    
-      }
+        if (potentiometer > 10) mode = STARTING;
     break;
     case STARTING:
-        targetRotationFreq = digitalRead(RPM_PIN) == LOW ? TARGET_ROTATION_FREQ_33 : TARGET_ROTATION_FREQ_45;
+        analogWrite(MOTOR_PIN, PWM_LEVEL_STARTING);
+//        targetRotationFreq = digitalRead(RPM_PIN) == LOW ? TARGET_ROTATION_FREQ_33 : TARGET_ROTATION_FREQ_45;
     break;
     case PLAYING:
-      if (rotationFreq > targetRotationFreq + HYSTERESIS) pwmLevel--;
-      if (rotationFreq < targetRotationFreq + HYSTERESIS) pwmLevel++;
-      analogWrite(MOTOR_PIN, pwmLevel);
-      if (analogRead(AUTO_STOP_PIN) < STOP_LEVEL || digitalRead(STOP_PIN) == HIGH) {
-        analogWrite(MOTOR_PIN, 0);
-        mode = READY;
-      }
+/*        byte minv = 148;
+        byte maxv = 156;
+        if (rotationFreq > 37 ) pwmLevel--;
+        if (pwmLevel < minv) pwmLevel = minv;
+        if (rotationFreq < 37) pwmLevel++;
+        if (pwmLevel > maxv) pwmLevel = maxv;
+        analogWrite(MOTOR_PIN, pwmLevel);*/
+        if (potentiometer < 10) {
+          mode = READY;
+          pwmLevel = 0;
+          analogWrite(MOTOR_PIN, pwmLevel);    
+        }
     break;
   }
+  
   if (dataready)
   {
-    dataAver = GetAver();
-    if (dataAver * prevData < 0) zeroCounter++;
+     zero_level = GetZeroLevel();
+
+    dataAver = GetAver() - zero_level;
+    if (dataAver * prevData < 0 || dataAver == 0) {
+      zeroCounter++;
+    }
     prevData = dataAver;
 
-    low = (dataAver - zero_level) & 0xFF;
-    high  = (dataAver - zero_level) >> 8;
+    low = dataAver & 0xFF;
+    high  = dataAver >> 8;
     Serial.write(25);
     Serial.write(low);
     Serial.write(high);
     low = rotationFreq & 0xFF;
     high  = rotationFreq >> 8;
+    low = pwmLevel & 0xFF;
+    high  = pwmLevel >> 8;
     Serial.write(low);
     Serial.write(high);
     dataready = false;
@@ -96,6 +110,8 @@ void loop() {
 }
 
 void timerInterrupt(){
+     potentiometer = analogRead(5);
+  
      data = analogRead(PHOTORES_PIN);
      dataArray[mainIndex] = data;
      mainIndex++;
@@ -105,19 +121,28 @@ void timerInterrupt(){
      secCounter++;
      if (secCounter > SAMPLING_FREQ)
      {
-        if (mode ==  STARTING)
+       if (mode ==  STARTING) 
         {
           startCounter++;
-          if (startCounter > STARTING_TIME) 
+          if (startCounter == 2)
           {
+            startCounter = 0;
+            pwmLevel = 122;
             mode = PLAYING;
-            analogWrite(MOTOR_PIN, PWM_LEVEL_DEFAULT);
-            targetRotationFreq = TARGET_ROTATION_FREQ_33;
           }
         }
-        zero_level = GetZeroLevel();
-        
-        rotationFreq = zeroCounter / 2;
+        rotationFreq = zeroCounter;
+
+        if (mode == PLAYING)
+        {
+          byte minv = 148;
+          byte maxv = 156;
+          if (rotationFreq > 30 ) pwmLevel--;
+          if (pwmLevel < minv) pwmLevel = minv;
+          if (rotationFreq < 30) pwmLevel++;
+          if (pwmLevel > maxv) pwmLevel = maxv;
+          analogWrite(MOTOR_PIN, pwmLevel);
+        }
         secCounter = 0;
         zeroCounter = 0;
      }
@@ -130,7 +155,8 @@ int GetAver()
    { 
        sum += dataArray[(mainIndex - i) & DATA_ARRAY_SIZE - 1];
    }
-   return (int)sum / AVER_SIZE;
+//   return (int)sum / AVER_SIZE;
+  return dataArray[mainIndex];
 }
 
 int GetZeroLevel()
