@@ -40,6 +40,8 @@ int dataAver;
 int dataArray[DATA_ARRAY_SIZE];
 bool dataready = false;
 unsigned int mainIndex = 0;
+unsigned int zeroIndex = 0;
+unsigned int duration = 0;
 int secCounter = 0;
 int zeroCounter = 0;
 int prevData;
@@ -86,10 +88,13 @@ void loop() {
   
   if (dataready)
   {
-     zero_level = GetZeroLevel();
+    zero_level = GetZeroLevel();
 
     dataAver = GetAver() - zero_level;
-    if (dataAver * prevData < 0 || dataAver == 0) {
+    if (dataAver * prevData < 0 || dataAver == 0) 
+    {
+      duration = (mainIndex - zeroIndex) & DATA_ARRAY_SIZE - 1;
+      zeroIndex = mainIndex;
       zeroCounter++;
     }
     prevData = dataAver;
@@ -101,8 +106,8 @@ void loop() {
     Serial.write(high);
     low = rotationFreq & 0xFF;
     high  = rotationFreq >> 8;
-    low = pwmLevel & 0xFF;
-    high  = pwmLevel >> 8;
+    low = duration & 0xFF;
+    high  = duration >> 8;
     Serial.write(low);
     Serial.write(high);
     dataready = false;
