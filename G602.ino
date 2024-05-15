@@ -40,16 +40,18 @@ int dataAver;
 int dataArray[DATA_ARRAY_SIZE];
 bool dataready = false;
 unsigned int mainIndex = 0;
-unsigned int zeroIndex = 0;
+unsigned int durationIndex = 0;
 unsigned int duration = 0;
 int secCounter = 0;
 int zeroCounter = 0;
 int prevData;
+int lock = 5;
 int rotationFreq;
 int potentiometer;
 int targetRotationFreq = TARGET_ROTATION_FREQ_33;
 int zero_level;
 byte pwmLevel = 150;
+byte phase = 0;
 
 void setup() {
   pinMode(AUTO_STOP_PIN, INPUT);
@@ -91,11 +93,21 @@ void loop() {
     zero_level = GetZeroLevel();
 
     dataAver = GetAver() - zero_level;
-    if (dataAver * prevData < 0 || dataAver == 0) 
+    if ((dataAver * prevData < 0 || dataAver == 0) && lock == 0) 
     {
-      duration = (mainIndex - zeroIndex) & DATA_ARRAY_SIZE - 1;
-      zeroIndex = mainIndex;
-      zeroCounter++;
+      
+      if (phase == 0)
+      {
+        lock = 10;
+        duration = durationIndex;
+        durationIndex = 0;
+        zeroCounter++;
+        phase = 1;
+      }
+      else 
+      {
+        phase = 0;
+      }
     }
     prevData = dataAver;
 
@@ -120,6 +132,8 @@ void timerInterrupt(){
      data = analogRead(PHOTORES_PIN);
      dataArray[mainIndex] = data;
      mainIndex++;
+     durationIndex++;
+     if (lock > 0) lock--;
      mainIndex = mainIndex & DATA_ARRAY_SIZE - 1;
      dataready = true;
 
