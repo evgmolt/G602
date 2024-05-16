@@ -51,7 +51,6 @@ int potentiometer;
 int targetRotationFreq = TARGET_ROTATION_FREQ_33;
 int zero_level;
 byte pwmLevel = 150;
-byte phase = 0;
 
 void setup() {
   pinMode(AUTO_STOP_PIN, INPUT);
@@ -96,17 +95,12 @@ void loop() {
     if ((dataAver * prevData < 0 || dataAver == 0) && lock == 0) 
     {
       
-      if (phase == 0)
+      if (prevData < 0)
       {
         lock = 10;
         duration = durationIndex;
         durationIndex = 0;
         zeroCounter++;
-        phase = 1;
-      }
-      else 
-      {
-        phase = 0;
       }
     }
     prevData = dataAver;
